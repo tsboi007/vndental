@@ -2,6 +2,7 @@
 
 import { tx } from '@/lib/db'
 import { run, s, n, batBuoc, type ActionState } from '@/lib/action'
+import { bamMatKhau, matKhauTam } from '@/lib/mat-khau'
 import { requireNhanVien } from '@/lib/session'
 
 // UC23 — chỉ quản lý. Không xóa cứng: tắt "đang làm việc / đang hoạt động / đang dùng" để giữ lịch sử (G10).
@@ -11,13 +12,29 @@ export async function themNhanVien(_: ActionState, fd: FormData): Promise<Action
   return run(async () => {
     batBuoc([s(fd, 'ho_ten'), 'họ tên'], [s(fd, 'vai_tro'), 'vai trò'], [s(fd, 'ten_dang_nhap'), 'tên đăng nhập'])
     if (!['bac_si', 'le_tan', 'quan_ly'].includes(s(fd, 'vai_tro'))) throw new Error('Vai trò không hợp lệ.')
+    const tam = matKhauTam()
+    const hash = await bamMatKhau(tam)
     await tx(nv.id, (c) =>
       c.query(
-        'INSERT INTO nhan_vien (ho_ten, sdt, vai_tro, ten_dang_nhap, ban_thoi_gian) VALUES ($1, $2, $3, $4, $5)',
-        [s(fd, 'ho_ten'), s(fd, 'sdt').replace(/\D/g, '') || null, s(fd, 'vai_tro'), s(fd, 'ten_dang_nhap').toLowerCase(), s(fd, 'ban_thoi_gian') === '1'],
+        'INSERT INTO nhan_vien (ho_ten, sdt, vai_tro, ten_dang_nhap, ban_thoi_gian, mat_khau_hash) VALUES ($1, $2, $3, $4, $5, $6)',
+        [s(fd, 'ho_ten'), s(fd, 'sdt').replace(/\D/g, '') || null, s(fd, 'vai_tro'), s(fd, 'ten_dang_nhap').toLowerCase(), s(fd, 'ban_thoi_gian') === '1', hash],
       ),
     )
-    return `Đã thêm ${s(fd, 'ho_ten')}.`
+    return `Đã thêm ${s(fd, 'ho_ten')}. Mật khẩu tạm: ${tam} — chỉ hiện một lần, đưa cho nhân viên và nhắc đổi ngay.`
+  })
+}
+
+// Quản lý đặt lại mật khẩu (nhân viên quên mật khẩu): sinh mật khẩu tạm, phiên cũ của người đó hết hiệu lực.
+export async function datLaiMatKhau(_: ActionState, fd: FormData): Promise<ActionState> {
+  const nv = await requireNhanVien('quan_ly')
+  return run(async () => {
+    const tam = matKhauTam()
+    const hash = await bamMatKhau(tam)
+    const r = await tx(nv.id, (c) =>
+      c.query<{ ten_dang_nhap: string }>('UPDATE nhan_vien SET mat_khau_hash = $1 WHERE id = $2 RETURNING ten_dang_nhap', [hash, n(fd, 'id')]),
+    )
+    if (!r.rowCount) throw new Error('Không tìm thấy nhân viên.')
+    return `Mật khẩu tạm của ${r.rows[0].ten_dang_nhap}: ${tam} — chỉ hiện một lần.`
   })
 }
 

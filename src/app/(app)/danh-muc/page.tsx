@@ -6,7 +6,7 @@ import { q } from '@/lib/db'
 import { sdtDep } from '@/lib/data'
 import { str, vnd, VAI_TRO } from '@/lib/format'
 import { requireNhanVien } from '@/lib/session'
-import { batTatDichVu, batTatGhe, batTatLyDo, doiTrangThaiNhanVien, themDichVu, themGhe, themLyDo, themNhanVien } from './actions'
+import { batTatDichVu, batTatGhe, batTatLyDo, datLaiMatKhau, doiTrangThaiNhanVien, themDichVu, themGhe, themLyDo, themNhanVien } from './actions'
 
 export const metadata = { title: 'Nhân viên & danh mục' }
 
@@ -29,8 +29,8 @@ async function DanhMucPage({ searchParams }: PageProps<'/danh-muc'>) {
   const t = (k: string, label: string) => ({ href: `/danh-muc?tab=${k}`, label, active: tab === k })
 
   const [nhanVien, dichVu, ghe, lyDo] = await Promise.all([
-    q<{ id: number; ho_ten: string; sdt: string | null; vai_tro: string; ten_dang_nhap: string; ban_thoi_gian: boolean; dang_lam_viec: boolean; so_ca_tuan: number }>(
-      `SELECT nv.*, (SELECT count(*) FROM ca_truc ct WHERE ct.nhan_vien_id = nv.id AND ct.ngay BETWEEN current_date AND current_date + 6) AS so_ca_tuan
+    q<{ id: number; ho_ten: string; sdt: string | null; vai_tro: string; ten_dang_nhap: string; ban_thoi_gian: boolean; dang_lam_viec: boolean; so_ca_tuan: number; co_mat_khau: boolean }>(
+      `SELECT nv.id, nv.ho_ten, nv.sdt, nv.vai_tro, nv.ten_dang_nhap, nv.ban_thoi_gian, nv.dang_lam_viec, nv.mat_khau_hash IS NOT NULL AS co_mat_khau, (SELECT count(*) FROM ca_truc ct WHERE ct.nhan_vien_id = nv.id AND ct.ngay BETWEEN current_date AND current_date + 6) AS so_ca_tuan
        FROM nhan_vien nv ORDER BY nv.dang_lam_viec DESC, array_position(ARRAY['bac_si','le_tan','quan_ly'], nv.vai_tro::text), nv.id`,
     ),
     q<{ id: number; ma: string; ten: string; nhom: string | null; don_vi: string; theo_rang: boolean; dang_ap_dung: boolean; gia: number | null; so_lan: number }>(
@@ -64,7 +64,7 @@ async function DanhMucPage({ searchParams }: PageProps<'/danh-muc'>) {
         <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
           <div className="card overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Họ tên</th><th>Vai trò</th><th>Tên đăng nhập</th><th>Điện thoại</th><th className="num">Ca 7 ngày tới</th><th>Trạng thái</th></tr></thead>
+              <thead><tr><th>Họ tên</th><th>Vai trò</th><th>Tên đăng nhập</th><th>Điện thoại</th><th className="num">Ca 7 ngày tới</th><th>Trạng thái</th><th>Mật khẩu</th></tr></thead>
               <tbody>
                 {nhanVien.map((x) => (
                   <tr key={x.id} className={x.dang_lam_viec ? '' : 'text-gray-400'}>
@@ -74,6 +74,13 @@ async function DanhMucPage({ searchParams }: PageProps<'/danh-muc'>) {
                     <td className="tabular-nums">{sdtDep(x.sdt)}</td>
                     <td className="num">{x.so_ca_tuan}</td>
                     <td><BatTat action={doiTrangThaiNhanVien} name="id" value={x.id} on={x.dang_lam_viec} onText="Đang làm việc" offText="Đã nghỉ" /></td>
+                    <td>
+                      <ActionForm action={datLaiMatKhau} confirm={`Đặt lại mật khẩu cho ${x.ten_dang_nhap}? Mật khẩu cũ sẽ không dùng được nữa.`}>
+                        <input type="hidden" name="id" value={x.id} />
+                        {!x.co_mat_khau && <span className="mr-1 text-xs text-amber-600">Chưa đặt ·</span>}
+                        <button className="btn-sec btn-sm">Đặt lại</button>
+                      </ActionForm>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -92,7 +99,7 @@ async function DanhMucPage({ searchParams }: PageProps<'/danh-muc'>) {
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="ban_thoi_gian" value="1" /> Bán thời gian</label>
               <button className="btn-primary">Thêm</button>
             </ActionForm>
-            <p className="mt-2 text-xs text-gray-500">Người đã nghỉ không hiện ở màn đăng nhập, không xếp ca và không nhận lịch hẹn mới. Lịch sử khám, hủy, sửa phiếu vẫn giữ tên người đó.</p>
+            <p className="mt-2 text-xs text-gray-500">Thêm xong, màn hình hiện <b>mật khẩu tạm</b> một lần — đưa cho nhân viên và nhắc đổi ở mục Mật khẩu. Người đã nghỉ không đăng nhập được, không xếp ca và không nhận lịch hẹn mới. Lịch sử khám, hủy, sửa phiếu vẫn giữ tên người đó.</p>
           </Card>
         </div>
       )}

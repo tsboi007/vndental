@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { NavLink } from '@/components/NavLink'
 import { q1 } from '@/lib/db'
@@ -79,8 +80,9 @@ async function TopUser() {
         <div className="text-sm font-semibold">{tenNgan(nv.ho_ten, nv.vai_tro)}</div>
         <div className="text-xs text-gray-500">{VAI_TRO[nv.vai_tro]}</div>
       </div>
+      <Link href="/doi-mat-khau" className="btn-sec btn-sm">Mật khẩu</Link>
       <form action={dangXuat}>
-        <button className="btn-sec btn-sm">Đổi người</button>
+        <button className="btn-sec btn-sm">Đăng xuất</button>
       </form>
     </div>
   )

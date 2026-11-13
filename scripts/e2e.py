@@ -1,6 +1,6 @@
 # Kiểm thử đầu-cuối các luồng chính trên Edge có sẵn (Playwright, không tải trình duyệt).
 # Chạy trên CSDL dev: npm run db:reset  ->  npm run dev  ->  python scripts/e2e.py <thư mục ảnh>
-import re, sys, pathlib, os
+import re, sys, pathlib, os, hashlib, base64
 import psycopg2
 from playwright.sync_api import sync_playwright
 
@@ -23,9 +23,26 @@ results = []
 def check(name, ok, info=''):
     results.append((name, ok)); print(('PASS ' if ok else 'FAIL ') + name + (f' — {info}' if info else ''), flush=True)
 
+# Đăng nhập bằng mật khẩu: đặt cùng một mật khẩu kiểm thử cho mọi nhân viên của CSDL dev
+# (định dạng hash giống src/lib/mat-khau.ts). Chỉ chạy trên PhongKhamRang_dev.
+E2E_PW = 'e2e-mat-khau-dev'
+def _bam(pw):
+    salt = os.urandom(16)
+    h = hashlib.scrypt(pw.encode(), salt=salt, n=16384, r=8, p=1, dklen=32)
+    return f'scrypt$16384$8$1${base64.b64encode(salt).decode()}${base64.b64encode(h).decode()}'
+assert one('SELECT current_database()')[0].endswith('_dev'), 'e2e chỉ chạy trên CSDL _dev'
+with db.cursor() as c: c.execute('UPDATE nhan_vien SET mat_khau_hash = %s', (_bam(E2E_PW),))
+
+VAI = {'LT': 'le_tan', 'BS': 'bac_si', 'QL': 'quan_ly'}
 def login(page, ten):
+    # ten dạng "LT Hoa" -> tra tên đăng nhập theo vai trò + tên gọi
+    vt, goi = ten.split(' ', 1)
+    tdn = one("SELECT ten_dang_nhap FROM nhan_vien WHERE vai_tro = %s AND ho_ten LIKE %s ORDER BY id LIMIT 1", VAI[vt], '% ' + goi)[0]
+    page.context.clear_cookies()
     page.goto(f'{BASE}/dang-nhap')
-    page.locator('button', has_text=ten).click()
+    page.fill('input[name=ten_dang_nhap]', tdn)
+    page.fill('input[name=mat_khau]', E2E_PW)
+    page.locator('button', has_text='Đăng nhập').click()
     page.wait_for_url(lambda u: '/dang-nhap' not in u, timeout=30000)
     page.wait_for_load_state('networkidle')
 

@@ -51,8 +51,9 @@ phong-kham-rang/
 │  └─ bao-cao.sql       8 truy vấn báo cáo tháng (UC22)
 ├─ scripts/
 │  ├─ db-init.mjs       Tạo bảng (+ --seed) / --reset: xóa schema public rồi tạo lại
-│  ├─ smoke.ps1         Gọi mọi route theo vai trò: phải 200; không cookie: 307 → /dang-nhap
-│  └─ e2e.py            Kiểm thử đầu-cuối trên Edge (Playwright) + đối chiếu CSDL
+│  ├─ dat-mat-khau.mjs  Đặt mật khẩu nhân viên từ dòng lệnh (<ten_dang_nhap> [mat_khau] | --chua-dat)
+│  ├─ smoke.ps1         Gọi mọi route theo vai trò (cookie ký HMAC): phải 200; không cookie: 307; cookie giả → /dang-nhap
+│  └─ e2e.py            Kiểm thử đầu-cuối trên Edge (Playwright, đăng nhập bằng mật khẩu) + đối chiếu CSDL
 ├─ src/
 │  ├─ proxy.ts          Chặn khi chưa đăng nhập, chuyển trang chủ theo vai trò
 │  ├─ lib/              db (Pool, q, q1, tx) · session (requireNhanVien) · action (run, loiTiengViet)
@@ -91,6 +92,8 @@ phong-kham-rang/
 | 17 Kho thuốc & vật tư | `/kho` | Quản lý | UC21 | `vat_tu`, `giao_dich_kho`, `v_vat_tu_sap_het` |
 | 18 Báo cáo tháng | `/bao-cao` | Quản lý | UC22 | truy vấn như `db/bao-cao.sql` |
 | 19 Nhân viên & danh mục | `/danh-muc?tab=nhan_vien\|dich_vu\|ghe\|ly_do` | Quản lý | UC23 | `nhan_vien`, `dich_vu`, `ghe`, `ly_do_huy` |
+| — Đăng nhập | `/dang-nhap` | Mọi người | — | `nhan_vien` (`ten_dang_nhap`, `mat_khau_hash`) |
+| — Đổi mật khẩu | `/doi-mat-khau` | Mọi vai trò | — | `nhan_vien.mat_khau_hash` |
 | — | `/dang-nhap`, `/khong-quyen` | Tất cả | — | `nhan_vien` |
 
 Quản lý có toàn quyền của lễ tân và bác sĩ (G7). Trang chủ theo vai trò: lễ tân `/lich-hen`, bác sĩ `/phieu-dieu-tri`, quản lý `/bao-cao`.
@@ -143,8 +146,10 @@ sequenceDiagram
 
 ## 6. Xác thực và phân quyền
 
-- **Bản demo:** màn `/dang-nhap` liệt kê nhân viên đang làm việc; bấm chọn → cookie `nv` (id) + `vt` (vai trò), httpOnly, 12 giờ. Chưa kiểm mật khẩu (cột `nhan_vien.mat_khau_hash` có sẵn nhưng để trống).
-- `src/proxy.ts`: mọi route trừ `/dang-nhap` cần cookie `nv`; `/` chuyển về trang chủ theo vai trò.
+- **Đăng nhập** (`/dang-nhap`): tên đăng nhập + mật khẩu. Mật khẩu băm **scrypt** (N=16384, r=8, p=1, salt 16 byte) trong `nhan_vien.mat_khau_hash`, dạng `scrypt$N$r$p$salt$hash` — `src/lib/mat-khau.ts`. Sai tên hay sai mật khẩu báo chung một câu, cùng thời gian xử lý (hash giả). Không còn liệt kê nhân viên ở màn đăng nhập. `mat_khau_hash` NULL = chưa được vào.
+- **Phiên** (`src/lib/session.ts`): cookie `nv` = `<id>.<hết hạn>.<chữ ký>`, chữ ký = HMAC-SHA256(`SESSION_SECRET`, `id.hết hạn.mat_khau_hash`); httpOnly, SameSite=Lax, `Secure` ở production, 12 giờ. Sửa tay id → sai chữ ký; đổi / đặt lại mật khẩu → mọi phiên cũ của người đó tự hết hiệu lực. Cookie `vt` chỉ để proxy chọn trang chủ, không dùng để phân quyền.
+- **Mật khẩu:** `/doi-mat-khau` — mọi người tự đổi (≥ 8 ký tự, phải nhập đúng mật khẩu cũ). Quản lý: thêm nhân viên → sinh mật khẩu tạm 12 ký tự, hiện một lần; nút **Đặt lại** ở `/danh-muc` (nhân viên quên mật khẩu). Lần đầu / quản lý quên: `node --env-file=<file> scripts/dat-mat-khau.mjs <ten_dang_nhap>`.
+- `src/proxy.ts`: mọi route trừ `/dang-nhap` cần có cookie `nv` (chỉ kiểm có/không); `/` chuyển về trang chủ theo vai trò.
 - Quyền thật kiểm ở **từng trang và từng Server Action** bằng `requireNhanVien(...roles)`: đọc lại nhân viên từ CSDL (đã nghỉ việc thì coi như chưa đăng nhập); sai vai trò → `redirect('/khong-quyen')`.
 - Menu trái (`(app)/layout.tsx`) chỉ hiện mục của vai trò đăng nhập; quản lý thấy tất cả.
 
@@ -230,11 +235,12 @@ erDiagram
 | CSDL production | **Neon gói Free**, Singapore (`ap-southeast-1`), PostgreSQL 18, database `neondb`, cấp qua tích hợp Neon của Vercel (resource `vndental-db`). Dữ liệu chép từ `PhongKhamRang` ngày 13/11/2026 (`pg_dump -n public --no-owner` → `psql`), múi giờ CSDL `Asia/Ho_Chi_Minh`, extension `btree_gist`. Gói Free tự ngủ khi rảnh — lần gọi đầu chậm vài giây. |
 | Biến môi trường production | Project Vercel `vndental` (vùng `sin1`): `DATABASE_URL` (qua pooler, app dùng) và `DATABASE_URL_UNPOOLED` (kết nối trực tiếp, cho `db-init.mjs` / `pg_dump`) do tích hợp Neon tự đặt cho production, preview, development. Xem: `vercel env ls`; tải: `vercel env pull <file> --environment=production` (**đừng** pull vào `.env.local` — sẽ ghi đè cấu hình Docker local). |
 | Kết nối production (`src/lib/db.ts`) | `sslmode=require` được đổi thành `verify-full` (giữ kiểm tra chứng chỉ khi lên pg 9); `connectionTimeoutMillis` 15 s (chờ Neon thức), `idleTimeoutMillis` 10 s; `attachDatabasePool(pool)` (`@vercel/functions`) đóng kết nối rảnh trước khi instance Vercel bị tạm dừng; thiếu `DATABASE_URL` thì báo lỗi rõ. |
-| Deploy app | Chưa deploy app lên Vercel: đăng nhập hiện chỉ chọn nhân viên, **không mật khẩu** — phải thêm xác thực thật trước khi đưa website ra internet. Khi sẵn sàng: `vercel deploy --prod` (project đã link, biến CSDL đã có). |
+| Deploy app | Vercel project `vndental`, vùng `sin1`: `vercel deploy --prod` từ thư mục mã nguồn (đã link, `.vercel/` không commit). Biến production: `DATABASE_URL`, `DATABASE_URL_UNPOOLED` (Neon), `SESSION_SECRET` (ngẫu nhiên 48 byte, kiểu Sensitive, riêng cho production và preview). |
+| `SESSION_SECRET` | Khóa ký cookie phiên, ≥ 32 ký tự. Local: dòng `SESSION_SECRET=` trong `.env.local`; production: biến Vercel. Đổi khóa = đăng xuất mọi người. |
 
 ## 11. Giới hạn hiện tại
 
-- Đăng nhập chưa có mật khẩu (chọn nhân viên) — chỉ dùng trong mạng nội bộ / demo.
+- Chưa giới hạn số lần đăng nhập sai (mật khẩu tạm ngẫu nhiên 12 ký tự nên khó dò; mật khẩu tự đặt tối thiểu 8 ký tự). Chưa có xác thực 2 lớp.
 - Chưa gửi SMS thật: nhắc lịch chỉ ghi nhận "đã gửi" (G14).
 - Dòng đơn thuốc đã lưu không xóa được (giao dịch kho tham chiếu và bị khóa — P9); kê nhầm thì "Hoàn kho".
 - Một cơ sở, không quản lý lương (G15). Báo cáo đọc trực tiếp CSDL, chưa có bộ nhớ đệm.
@@ -246,3 +252,4 @@ erDiagram
 | 05/11/2026 | Dựng website Next.js 16 cho CSDL PhongKhamRang: 18 màn theo wireframe + màn 19 Nhân viên & danh mục (UC23); chuyển mã nguồn theo schema mới (ca có buổi, `ly_do_huy_ma` + danh mục lý do hủy, liên kết dời lịch `doi_tu_lich_hen_id`, phiếu có trạng thái hoàn tất, dị ứng tách khỏi tiền sử, xuất vật tư gắn phiếu, hoàn kho đơn thuốc bằng giao dịch điều chỉnh); seed mới tương đối theo ngày; CSDL kiểm thử `PhongKhamRang_dev`; smoke test + e2e 26 bước. | Tất cả |
 | 13/11/2026 | Thêm quy tắc `.claude/rules/frontend-backend.md` (bản đồ frontend / backend, nơi đặt code) và trỏ từ CLAUDE.md; e2e.py đọc chuỗi kết nối từ `.env.local` thay vì ghi cứng. Không đổi kiến trúc. | 3, 12 |
 | 13/11/2026 | Đưa CSDL `PhongKhamRang` lên Neon Free (Singapore) qua tích hợp Vercel, project `vndental`; `db.ts` thêm cấu hình production (verify-full, timeout, `attachDatabasePool`); thêm `@vercel/functions` 3.10.4; `.env.example` ghi cách lấy biến production. | 7, 10, 12 |
+| 13/11/2026 | Đăng nhập bằng mật khẩu (scrypt) thay cho chọn nhân viên; cookie phiên ký HMAC (`SESSION_SECRET`), đổi mật khẩu làm hết hạn phiên cũ; màn `/doi-mat-khau`; quản lý đặt lại mật khẩu / mật khẩu tạm khi thêm nhân viên; `scripts/dat-mat-khau.mjs`; smoke + e2e đăng nhập theo cách mới; deploy app lên Vercel (`vndental`). | 3, 4, 6, 10, 11, 12 |
