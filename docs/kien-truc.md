@@ -154,6 +154,7 @@ sequenceDiagram
 - Kiểu dữ liệu: DATE / TIMESTAMP trả về **chuỗi** (tránh lệch múi giờ), NUMERIC / BIGINT trả về `number` (tiền VND).
 - Múi giờ `Asia/Ho_Chi_Minh` đặt ở cấp CSDL (`ALTER DATABASE … SET timezone`, do `scripts/db-init.mjs` chạy) — `now()`, `current_date` luôn theo giờ Việt Nam.
 - Kết nối: biến `DATABASE_URL` trong `.env.local` (user `Sang_admin`, chủ sở hữu CSDL; không cần quyền superuser).
+- Production: cùng biến `DATABASE_URL`, do Vercel cấp, trỏ tới Neon qua pooler (SSL `verify-full`); `attachDatabasePool` đóng kết nối rảnh khi instance Vercel tạm dừng — chi tiết ở mục 10.
 - SQL viết tay, tham số `$1…$n`; không ORM. Truy vấn dùng chung ở `src/lib/data.ts` (tìm bệnh nhân theo SĐT / mã / tên, ca trực ngày, danh mục).
 
 ## 8. Mô hình dữ liệu
@@ -226,7 +227,10 @@ erDiagram
 | Chạy local | `npm install` → `npm run dev` → http://localhost:3000 |
 | Lệnh CSDL | `npm run db:init` (CSDL trống, chỉ bảng) · `node --env-file=.env.local scripts/db-init.mjs --seed` · `npm run db:reset` (xóa schema rồi tạo lại + seed) |
 | Kiểm thử | `powershell -File scripts/smoke.ps1` · `python scripts/e2e.py e2e-shots` (Edge có sẵn) |
-| Deploy | Chưa triển khai lên cloud. Khi cần: Vercel (`sin1`) + Neon, xem `vercel.json`, `.vercelignore` |
+| CSDL production | **Neon gói Free**, Singapore (`ap-southeast-1`), PostgreSQL 18, database `neondb`, cấp qua tích hợp Neon của Vercel (resource `vndental-db`). Dữ liệu chép từ `PhongKhamRang` ngày 13/11/2026 (`pg_dump -n public --no-owner` → `psql`), múi giờ CSDL `Asia/Ho_Chi_Minh`, extension `btree_gist`. Gói Free tự ngủ khi rảnh — lần gọi đầu chậm vài giây. |
+| Biến môi trường production | Project Vercel `vndental` (vùng `sin1`): `DATABASE_URL` (qua pooler, app dùng) và `DATABASE_URL_UNPOOLED` (kết nối trực tiếp, cho `db-init.mjs` / `pg_dump`) do tích hợp Neon tự đặt cho production, preview, development. Xem: `vercel env ls`; tải: `vercel env pull <file> --environment=production` (**đừng** pull vào `.env.local` — sẽ ghi đè cấu hình Docker local). |
+| Kết nối production (`src/lib/db.ts`) | `sslmode=require` được đổi thành `verify-full` (giữ kiểm tra chứng chỉ khi lên pg 9); `connectionTimeoutMillis` 15 s (chờ Neon thức), `idleTimeoutMillis` 10 s; `attachDatabasePool(pool)` (`@vercel/functions`) đóng kết nối rảnh trước khi instance Vercel bị tạm dừng; thiếu `DATABASE_URL` thì báo lỗi rõ. |
+| Deploy app | Chưa deploy app lên Vercel: đăng nhập hiện chỉ chọn nhân viên, **không mật khẩu** — phải thêm xác thực thật trước khi đưa website ra internet. Khi sẵn sàng: `vercel deploy --prod` (project đã link, biến CSDL đã có). |
 
 ## 11. Giới hạn hiện tại
 
@@ -241,3 +245,4 @@ erDiagram
 | --- | --- | --- |
 | 05/11/2026 | Dựng website Next.js 16 cho CSDL PhongKhamRang: 18 màn theo wireframe + màn 19 Nhân viên & danh mục (UC23); chuyển mã nguồn theo schema mới (ca có buổi, `ly_do_huy_ma` + danh mục lý do hủy, liên kết dời lịch `doi_tu_lich_hen_id`, phiếu có trạng thái hoàn tất, dị ứng tách khỏi tiền sử, xuất vật tư gắn phiếu, hoàn kho đơn thuốc bằng giao dịch điều chỉnh); seed mới tương đối theo ngày; CSDL kiểm thử `PhongKhamRang_dev`; smoke test + e2e 26 bước. | Tất cả |
 | 13/11/2026 | Thêm quy tắc `.claude/rules/frontend-backend.md` (bản đồ frontend / backend, nơi đặt code) và trỏ từ CLAUDE.md; e2e.py đọc chuỗi kết nối từ `.env.local` thay vì ghi cứng. Không đổi kiến trúc. | 3, 12 |
+| 13/11/2026 | Đưa CSDL `PhongKhamRang` lên Neon Free (Singapore) qua tích hợp Vercel, project `vndental`; `db.ts` thêm cấu hình production (verify-full, timeout, `attachDatabasePool`); thêm `@vercel/functions` 3.10.4; `.env.example` ghi cách lấy biến production. | 7, 10, 12 |

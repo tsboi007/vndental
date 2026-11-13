@@ -49,3 +49,6 @@ e2e-shots/
 dev.log
 e2e-shots/
 !.env.example
+
+.vercel
+.env*
