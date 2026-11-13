@@ -24,8 +24,8 @@ $route = @(
 )
 $nv = @{ le_tan = 5; bac_si = 1; quan_ly = 7 }
 # Cookie phiên có chữ ký (giống src/lib/session.ts): "<id>.<het>.<HMAC-SHA256(SESSION_SECRET, id.het.mat_khau_hash)>"
-$secret = ((Get-Content (Join-Path $PSScriptRoot '..\.env.local') -Encoding UTF8 | Where-Object { $_ -match '^SESSION_SECRET=' }) -split '=', 2)[1]
-if (-not $secret) { throw 'Thieu SESSION_SECRET trong .env.local' }
+$secret = ((Get-Content (Join-Path $PSScriptRoot '..\backend\.env.local') -Encoding UTF8 | Where-Object { $_ -match '^SESSION_SECRET=' }) -split '=', 2)[1]
+if (-not $secret) { throw 'Thieu SESSION_SECRET trong backend\.env.local' }
 function Phien($id) {
   $hash = Id "SELECT mat_khau_hash FROM nhan_vien WHERE id = $id"
   if (-not $hash) { $hash = 'smoke-' + [guid]::NewGuid(); docker exec PhongKhamRangNCV psql -U Sang_admin -d $db -q -c "UPDATE nhan_vien SET mat_khau_hash = '$hash' WHERE id = $id" | Out-Null }

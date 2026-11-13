@@ -9,7 +9,7 @@ SHOTS = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else 'e2e-shots'); SHOTS.m
 def _db_url():
     # Ưu tiên biến môi trường E2E_DB, không có thì lấy DATABASE_URL đang bật trong .env.local
     if os.environ.get('E2E_DB'): return os.environ['E2E_DB']
-    env = pathlib.Path(__file__).resolve().parent.parent / '.env.local'
+    env = pathlib.Path(__file__).resolve().parent.parent / 'backend' / '.env.local'
     for line in env.read_text(encoding='utf-8').splitlines():
         if line.startswith('DATABASE_URL='): return line.split('=', 1)[1].strip()
     sys.exit('Thiếu E2E_DB hoặc DATABASE_URL trong .env.local')
@@ -205,6 +205,8 @@ with sync_playwright() as p:
 
     # 8. Nhắc lịch ngày mai, đối soát
     page.goto(f'{BASE}/nhac-lich')
+    page.wait_for_load_state('networkidle')
+    page.get_by_role('heading', name='Nhắc lịch').first.wait_for()  # chờ hết khung chờ (dữ liệu stream từ backend)
     shot(page, '05-nhac-lich')
     btn = page.get_by_role('button', name='Nghe máy').first
     if btn.count():

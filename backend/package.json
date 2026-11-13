@@ -1,0 +1,32 @@
+{
+  "name": "vndental-backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "lint": "eslint",
+    "db:init": "node --env-file=.env.local scripts/db-init.mjs",
+    "db:reset": "node --env-file=.env.local scripts/db-init.mjs --reset",
+    "typecheck": "next typegen && tsc --noEmit",
+    "sinh-kieu": "node scripts/sinh-kieu.mjs"
+  },
+  "dependencies": {
+    "@vercel/functions": "3.10.4",
+    "next": "16.4.3",
+    "pg": "^8.23.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.3",
+    "typescript": "^5"
+  }
+}

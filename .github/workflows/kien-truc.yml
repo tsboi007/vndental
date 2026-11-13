@@ -19,9 +19,9 @@ jobs:
           base="${{ github.event.pull_request.base.sha }}"
           changed=$(git diff --name-only "$base"...HEAD)
           echo "$changed"
-          if echo "$changed" | grep -qE '^(src|db|scripts)/'; then
+          if echo "$changed" | grep -qE '^(frontend/src|backend/src|backend/db|backend/scripts|scripts)/'; then
             if ! echo "$changed" | grep -qx 'docs/kien-truc.md'; then
-              echo "::error::PR sửa src/, db/ hoặc scripts/ nhưng chưa cập nhật docs/kien-truc.md (xem .claude/rules/cap-nhat-kien-truc.md)."
+              echo "::error::PR sửa frontend/, backend/ hoặc scripts/ nhưng chưa cập nhật docs/kien-truc.md (xem .claude/rules/cap-nhat-kien-truc.md)."
               exit 1
             fi
           fi

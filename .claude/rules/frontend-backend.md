@@ -1,34 +1,31 @@
 # Quy tắc: frontend và backend trong dự án
 
-Dự án là **một ứng dụng Next.js 16 duy nhất**, không có thư mục `frontend/` và `backend/` riêng, không có REST API. Ranh giới frontend / backend nằm **trong từng file**, theo chỉ thị `'use client'` / `'use server'` / `import 'server-only'`. Đừng tách repo, đừng thêm Express/API route chỉ để "có backend" — muốn thêm API thì hỏi người dùng trước và ghi vào `docs/kien-truc.md`.
+Dự án gồm **hai ứng dụng Next.js 16 deploy riêng** trên Vercel:
 
-## Bản đồ
+| | Thư mục | Production | Local | Được phép |
+| --- | --- | --- | --- | --- |
+| **Frontend** | `frontend/` | https://vndental-app.vercel.app (project `vndental-app`) | :3000 | Giao diện, Server Component, Server Action mỏng, cookie phiên |
+| **Backend** | `backend/` | https://be-vndental.vercel.app (project `bevndental`) | :3001 | API JSON, SQL, mật khẩu, ký / kiểm token |
+| **CSDL** | `backend/db/` | Neon `neondb` (Singapore) | Docker `PhongKhamRang_dev` | Luật nghiệp vụ thật (CHECK, UNIQUE, EXCLUDE, trigger, view) |
 
-| Lớp | Chạy ở đâu | File | Việc của nó |
-| --- | --- | --- | --- |
-| **Frontend — client** | Trình duyệt | `src/components/ActionForm.tsx`, `NavLink.tsx`, `PrintButton.tsx`, `src/app/(app)/error.tsx` (có `'use client'`) | Tương tác: gửi form + hiện thông báo, tô menu đang chọn, nút in, màn lỗi. Không đụng CSDL. |
-| **Frontend — giao diện render trên server** | Node.js (gửi HTML về trình duyệt) | `src/app/**/page.tsx`, `layout.tsx`, `src/components/ui.tsx`, `Skeleton.tsx`, `src/app/globals.css` (Tailwind 4) | Server Component: đọc dữ liệu qua `src/lib/data.ts` / `q()` rồi dựng HTML. Không có `'use client'`. |
-| **Backend — chặn cửa** | Node.js, trước mọi request | `src/proxy.ts` | Chưa có cookie `nv` → `/dang-nhap`; `/` → trang chủ theo vai trò. Chỉ kiểm tra nhanh. |
-| **Backend — xử lý ghi** | Node.js | `src/app/**/actions.ts` (`'use server'`, 12 file) | Server Action: `requireNhanVien(vai_tro)` → kiểm tra dữ liệu form → SQL trong `tx()` → `refresh()` / `redirect()`. |
-| **Backend — thư viện** | Node.js (`import 'server-only'`) | `src/lib/db.ts` (Pool, `q`, `q1`, `tx`), `session.ts` (cookie, phân quyền), `action.ts` (`run`, đổi lỗi PG → tiếng Việt), `data.ts` (truy vấn dùng chung), `format.ts` | Mọi truy cập CSDL đi qua đây. |
-| **CSDL** | Docker `PhongKhamRangNCV` (PostgreSQL 17) | `db/schema.sql`, `db/seed.sql`, `db/bao-cao.sql` | Luật nghiệp vụ thật (CHECK, UNIQUE, EXCLUDE, trigger, view). |
+**Chỉ backend nối CSDL và biết `SESSION_SECRET`.** Frontend gọi backend server-to-server qua `BACKEND_URL` (`frontend/src/lib/api.ts`), kèm token trong header `Authorization: Bearer`. Trình duyệt không gọi thẳng backend → backend không mở CORS.
 
-## Luồng một thao tác
+## API của backend
 
-```text
-Trình duyệt ──GET──> proxy.ts ──> page.tsx (Server Component) ──> lib/data.ts ──> PostgreSQL
-           <──HTML stream──────────────┘
-Trình duyệt ──POST form (ActionForm, client)──> actions.ts ('use server') ──> lib/db.ts tx() ──> PostgreSQL
-           <──{ ok | error tiếng Việt } + refresh()──┘
-```
+| API | Việc | Code |
+| --- | --- | --- |
+| `POST /api/dang-nhap` | Kiểm mật khẩu, cấp token | `backend/src/app/api/dang-nhap/route.ts` |
+| `GET /api/toi` | Token là của ai (+ số vật tư sắp hết) | `backend/src/app/api/toi/route.ts` |
+| `GET /api/trang/<tên>?…` | Dữ liệu một màn hình | `backend/src/trang/<tên>.ts`, bảng tra `src/trang/index.ts` |
+| `POST /api/lenh/<tênHàm>` | Một thao tác ghi (FormData) | `backend/src/lenh/<nhóm>.ts`, bảng tra `src/lenh/index.ts` |
+
+Mọi API đi qua `xuLy()` (`backend/src/lib/api.ts`): token → nhân viên (AsyncLocalStorage) → `requireNhanVien` trong từng hàm → JSON. 401 / 403 / 404 → frontend chuyển `/dang-nhap` / `/khong-quyen` / notFound.
 
 ## Khi sửa code
 
-1. **Đặt code đúng lớp:**
-   - Truy vấn đọc → `src/lib/data.ts` (dùng lại được) hoặc ngay trong `page.tsx`.
-   - Ghi dữ liệu → `actions.ts` cùng thư mục route, bọc trong `tx()`, bắt đầu bằng `requireNhanVien(...)`.
-   - Luật nghiệp vụ (trùng lịch, tồn kho, giá theo ngày…) → ưu tiên ràng buộc / trigger trong `db/schema.sql`; thêm câu báo lỗi vào bảng `RANG_BUOC` trong `src/lib/action.ts`.
-   - Chỉ thêm `'use client'` khi thật sự cần state / sự kiện trình duyệt; giữ component client nhỏ.
-2. **Không được:** import `src/lib/db.ts`, `session.ts`, `data.ts` vào file `'use client'` (`server-only` sẽ báo lỗi build); đưa `DATABASE_URL` hoặc biến `NEXT_PUBLIC_*` chứa bí mật ra client; ghi CSDL từ `page.tsx`.
-3. **Phân quyền kiểm tra 2 lần:** `proxy.ts` chỉ xem có cookie; quyền thật kiểm tra lại trong từng trang và Server Action bằng `requireNhanVien`.
-4. Đổi bất kỳ lớp nào ở trên → cập nhật `docs/kien-truc.md` theo [cap-nhat-kien-truc.md](cap-nhat-kien-truc.md).
+1. **Thêm / đổi dữ liệu một màn:** sửa `backend/src/trang/<tên>.ts` (dòng đầu luôn `await requireNhanVien(...)`), rồi `cd backend && npm run sinh-kieu` để cập nhật `frontend/src/kieu/` (không sửa tay thư mục này), rồi sửa JSX ở `frontend/src/app/(app)/<route>/page.tsx`.
+2. **Thêm thao tác ghi:** hàm `(_: ActionState, fd: FormData) => Promise<ActionState>` trong `backend/src/lenh/<nhóm>.ts`, tên **duy nhất** trong `LENH`, kiểm vai trò, ghi qua `tx(nv.id, …)`; muốn chuyển trang thì `redirect()` của `@/lib/ket-qua`. Frontend: `export async function x(_, fd) { return lenh('x', fd) }` trong `actions.ts`.
+3. **Không được:** cài `pg` hay đọc `DATABASE_URL` / `SESSION_SECRET` ở frontend; tin cookie `vt` hay `requireNhanVien` của frontend để phân quyền (chỉ dùng chuyển trang — quyền thật ở backend); trả `undefined` / hàm / `Date` từ hàm trang (JSON bỏ mất — dùng `null`, chuỗi).
+4. **Luật nghiệp vụ** ưu tiên đặt ở CSDL; thêm câu báo lỗi tiếng Việt vào `RANG_BUOC` (`backend/src/lib/action.ts`).
+5. **Deploy:** `cd backend && vercel deploy --prod`, `cd frontend && vercel deploy --prod` (đổi API thì deploy backend trước).
+6. Đổi bất kỳ lớp nào ở trên → cập nhật `docs/kien-truc.md` theo [cap-nhat-kien-truc.md](cap-nhat-kien-truc.md).

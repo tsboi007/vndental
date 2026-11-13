@@ -7,10 +7,10 @@ Khi phát triển, sửa hoặc xóa một tính năng (màn hình, Server Actio
 | Thay đổi | Mục cần sửa trong `docs/kien-truc.md` |
 | --- | --- |
 | Thêm / đổi route, màn hình | 3 Cấu trúc thư mục (nếu có thư mục mới), 4 Bảng route ↔ use case |
-| Thêm / đổi Server Action, luồng ghi | 5 Luồng xử lý (nếu khác mẫu chung) |
+| Thêm / đổi API, lệnh ghi (`backend/src/lenh`), dữ liệu màn (`backend/src/trang`) | 5 Luồng xử lý (nếu khác mẫu chung) |
 | Đổi đăng nhập, vai trò, quyền | 6 Xác thực và phân quyền |
-| Đổi `lib/db.ts`, kết nối, múi giờ | 7 Tầng dữ liệu |
-| Đổi `db/schema.sql` (bảng, cột, view, trigger, ràng buộc) | 8 Mô hình dữ liệu (ERD + bảng luật) |
+| Đổi `backend/src/lib/db.ts`, kết nối, múi giờ | 7 Tầng dữ liệu |
+| Đổi `backend/db/schema.sql` (bảng, cột, view, trigger, ràng buộc) | 8 Mô hình dữ liệu (ERD + bảng luật) |
 | Quy ước code mới | 9 Quy ước phát triển |
 | Biến môi trường, hạ tầng, triển khai | 10 Môi trường và triển khai |
 | Bỏ / thêm giới hạn | 11 Giới hạn hiện tại |
@@ -26,4 +26,4 @@ Khi phát triển, sửa hoặc xóa một tính năng (màn hình, Server Actio
 
 Khi đổi schema, sửa luôn bản `database/schema.sql` trong thư mục tài liệu trên Google Drive và ghi lý do vào `database/quyet-dinh.md` nếu đó là quyết định thiết kế.
 
-GitHub Action `kien-truc` sẽ chặn Pull Request sửa `src/`, `db/` hoặc `scripts/` mà không sửa `docs/kien-truc.md`.
+GitHub Action `kien-truc` sẽ chặn Pull Request sửa `frontend/`, `backend/` hoặc `scripts/` mà không sửa `docs/kien-truc.md`.
