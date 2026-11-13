@@ -64,7 +64,7 @@ phong-kham-rang/
 │     └─ (app)/         Mọi màn sau đăng nhập; layout.tsx = menu trái lọc theo vai trò + thanh trên
 │        └─ <route>/page.tsx (+ actions.ts, [id]/page.tsx, moi/page.tsx…)
 ├─ docs/kien-truc.md    Tài liệu này
-├─ .claude/rules/       Quy tắc cập nhật kiến trúc (cho Claude)
+├─ .claude/rules/       Quy tắc cho Claude: cập nhật kiến trúc, ranh giới frontend / backend
 ├─ .github/             PR template + workflow chặn PR thiếu cập nhật kiến trúc
 └─ .env.local           DATABASE_URL (không commit)
 ```
@@ -240,3 +240,4 @@ erDiagram
 | Ngày | Thay đổi | Mục đã sửa |
 | --- | --- | --- |
 | 05/11/2026 | Dựng website Next.js 16 cho CSDL PhongKhamRang: 18 màn theo wireframe + màn 19 Nhân viên & danh mục (UC23); chuyển mã nguồn theo schema mới (ca có buổi, `ly_do_huy_ma` + danh mục lý do hủy, liên kết dời lịch `doi_tu_lich_hen_id`, phiếu có trạng thái hoàn tất, dị ứng tách khỏi tiền sử, xuất vật tư gắn phiếu, hoàn kho đơn thuốc bằng giao dịch điều chỉnh); seed mới tương đối theo ngày; CSDL kiểm thử `PhongKhamRang_dev`; smoke test + e2e 26 bước. | Tất cả |
+| 13/11/2026 | Thêm quy tắc `.claude/rules/frontend-backend.md` (bản đồ frontend / backend, nơi đặt code) và trỏ từ CLAUDE.md; e2e.py đọc chuỗi kết nối từ `.env.local` thay vì ghi cứng. Không đổi kiến trúc. | 3, 12 |
