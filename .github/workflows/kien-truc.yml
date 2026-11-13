@@ -1,0 +1,27 @@
+name: kien-truc
+
+# Chặn PR sửa code / schema mà không cập nhật tài liệu kiến trúc.
+# Bỏ qua bằng nhãn "khong-doi-kien-truc" cho các sửa lỗi nhỏ không đổi cấu trúc.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  docs-updated:
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'khong-doi-kien-truc') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Kiểm tra docs/kien-truc.md
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          changed=$(git diff --name-only "$base"...HEAD)
+          echo "$changed"
+          if echo "$changed" | grep -qE '^(src|db|scripts)/'; then
+            if ! echo "$changed" | grep -qx 'docs/kien-truc.md'; then
+              echo "::error::PR sửa src/, db/ hoặc scripts/ nhưng chưa cập nhật docs/kien-truc.md (xem .claude/rules/cap-nhat-kien-truc.md)."
+              exit 1
+            fi
+          fi

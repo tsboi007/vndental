@@ -1,0 +1,32 @@
+{
+    "name":  "phong-kham-rang",
+    "version":  "0.1.0",
+    "private":  true,
+    "scripts":  {
+                    "dev":  "next dev",
+                    "build":  "next build",
+                    "start":  "next start",
+                    "lint":  "eslint",
+                    "db:init":  "node --env-file=.env.local scripts/db-init.mjs",
+                    "db:reset":  "node --env-file=.env.local scripts/db-init.mjs --reset",
+                    "typecheck":  "next typegen \u0026\u0026 tsc --noEmit"
+                },
+    "dependencies":  {
+                         "next":  "16.4.3",
+                         "react":  "19.3.0",
+                         "react-dom":  "19.3.0",
+                         "pg":  "^8.23.1",
+                         "server-only":  "^0.0.1"
+                     },
+    "devDependencies":  {
+                            "@tailwindcss/turbopack":  "^4",
+                            "@types/node":  "^20",
+                            "@types/react":  "^19",
+                            "@types/react-dom":  "^19",
+                            "eslint":  "^9",
+                            "eslint-config-next":  "16.4.3",
+                            "tailwindcss":  "^4",
+                            "typescript":  "^5",
+                            "@types/pg":  "^8.23.1"
+                        }
+}

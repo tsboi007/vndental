@@ -1,0 +1,19 @@
+{
+  // Kết nối SQLTools tới CSDL PhongKhamRang (container Docker PhongKhamRangNCV). Chỉ dùng cho máy local.
+  "sqltools.connections": [
+    {
+      "name": "PhongKhamRang (Sang_admin)",
+      "driver": "PostgreSQL",
+      "server": "localhost",
+      "port": 5432,
+      "database": "PhongKhamRang",
+      "username": "Sang_admin",
+      "askForPassword": true,
+      "previewLimit": 50
+    }
+  ],
+  "sqltools.useNodeRuntime": true,
+  "files.associations": {
+    "*.sql": "sql"
+  }
+}
